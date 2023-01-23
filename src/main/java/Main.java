@@ -4,7 +4,7 @@ public class Main {
     public static final Map<Integer, Integer> sizeToFreq = new HashMap<>();
     public static final int threadNumbers = 1000;
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
 
         List<Thread> threads = new ArrayList<>();
         for (int i = 0; i < threadNumbers; i++) {
@@ -15,23 +15,45 @@ public class Main {
                     int count = sizeToFreq.getOrDefault(percent, 1);
                     count++;
                     sizeToFreq.put(percent, count);
+                    sizeToFreq.notify();
                 }
+
             });
             threads.add(thread);
             thread.start();
         }
+
+        Thread thread2 = new Thread(() -> {
+            try {
+                while (true) {
+                    synchronized (sizeToFreq) {
+                        Optional<Map.Entry<Integer, Integer>> maxNumberOfReps = sizeToFreq.entrySet()
+                                .stream()
+                                .max(Map.Entry.comparingByValue());
+                        System.out.printf("Самое частое количество повторений %d (встретилось %d раз)\n", maxNumberOfReps.get().getKey(),
+                                maxNumberOfReps.get().getValue());
+                        sizeToFreq.wait();
+                    }
+                }
+            } catch (InterruptedException ignored) {
+            }
+        });
+
+        thread2.start();
+
         try {
             for (Thread thread : threads) {
                 thread.join();
             }
+            thread2.interrupt();
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
+
         Optional<Map.Entry<Integer, Integer>> maxNumberOfReps = sizeToFreq.entrySet()
                 .stream()
                 .max(Map.Entry.comparingByValue());
-        System.out.printf("Самое частое количество повторений %d (встретилось %d раз)\n", maxNumberOfReps.get().getKey(),
-                maxNumberOfReps.get().getValue());
+
         System.out.println("Другие размеры:");
         List<Map.Entry<Integer, Integer>> ordered = sizeToFreq.entrySet()
                 .stream()
@@ -59,3 +81,4 @@ public class Main {
         return (int) route.chars().filter(x -> x == 'R').count();
     }
 }
+
